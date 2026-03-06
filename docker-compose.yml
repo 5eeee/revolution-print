@@ -1,0 +1,76 @@
+version: '3.8'
+
+services:
+  # PostgreSQL база данных
+  postgres:
+    image: postgres:15-alpine
+    container_name: revolution_print_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: revolution_print
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - revolution_network
+
+  # Backend приложение
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: revolution_print_api
+    environment:
+      DATABASE_URL: postgresql://postgres:password@postgres:5432/revolution_print
+      JWT_SECRET: revolution_print_super_secret_key_change_in_production_2024
+      JWT_EXPIRATION: 7d
+      PORT: 3000
+      NODE_ENV: production
+      CORS_ORIGIN: http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend/uploads:/app/uploads
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    networks:
+      - revolution_network
+    restart: unless-stopped
+
+  # Frontend сервер (для разработки)
+  frontend:
+    image: node:18-alpine
+    container_name: revolution_print_web
+    working_dir: /app
+    command: npx http-server -p 8000 -c-1
+    volumes:
+      - ./frontend:/app
+    ports:
+      - "8000:8000"
+    networks:
+      - revolution_network
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+    driver: local
+
+networks:
+  revolution_network:
+    driver: bridge

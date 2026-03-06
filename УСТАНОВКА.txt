@@ -1,0 +1,53 @@
+Установка Revolution Print на новый компьютер (Windows)
+1. Установить программы
+Node.js 18+ — скачать с nodejs.org (LTS версия, установить с галочками по умолчанию)
+PostgreSQL 15+ — скачать с postgresql.org (запомнить пароль, который зададите при установке)
+
+2. Скопировать проект
+Скопировать всю папку revolution print на компьютер друга (флешка, архив, облако — как угодно). Папку node_modules можно не копировать — она пересоздастся.
+
+3. Создать базу данных
+Открыть PowerShell и выполнить:
+
+psql -U postgres
+
+Ввести пароль PostgreSQL, затем:
+
+CREATE DATABASE revolution_print;
+\q
+
+4. Настроить подключение
+Открыть файл .env и поменять пароль БД на тот, что задали при установке PostgreSQL:
+
+DB_PASSWORD=пароль_от_postgresql
+
+Остальное менять не нужно.
+
+5. Установить зависимости и запустить
+Способ А — через скрипт (проще):
+
+start-dev.bat
+
+Он сам установит зависимости и покажет инструкции.
+
+Способ Б — вручную (надёжнее):
+
+Открыть PowerShell, перейти в папку проекта:
+
+cd "D:\revolution print\backend"
+npm install
+node seed.js
+node server.js
+
+Открыть второй PowerShell:
+
+cd "D:\revolution print\frontend"
+npx http-server -p 8080 -c-1
+
+6. Готово
+Открыть браузер: http://localhost:8080
+
+Логин: admin@revolution.print
+Пароль: admin123
+
+Если PostgreSQL установлен с другим портом или логином — поправить соответствующие строки в .env (DB_PORT, DB_USER).

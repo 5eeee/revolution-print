@@ -1,0 +1,535 @@
+const { Order, Client, OrderCalculator, Design, CostEstimate, ProductionBreakdown, ProductionCompany, Message, User } = require('../models');
+
+async function getOrders(req, res) {
+  try {
+    const { Op } = require('sequelize');
+    const whereClause = req.user.role === 'admin'
+      ? {}
+      : { [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
+
+    const orders = await Order.findAll({
+      where: whereClause,
+      include: [
+        { model: Client, attributes: ['id', 'name'] },
+        { model: User, as: 'Creator', attributes: ['id', 'fullName'] },
+      ],
+      order: [['createdAt', 'DESC']],
+    });
+
+    res.json({
+      success: true,
+      data: orders,
+    });
+  } catch (error) {
+    console.error('Ошибка при получении заказов:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при получении заказов',
+    });
+  }
+}
+
+async function takeOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Заказ не найден' });
+    }
+
+    if (order.assignedTo && order.assignedTo !== req.user.userId) {
+      return res.status(409).json({ success: false, error: `Заказ уже взят: ${order.assignedName}` });
+    }
+
+    const user = await User.findByPk(req.user.userId);
+    order.assignedTo = req.user.userId;
+    order.assignedName = user?.fullName || 'Неизвестный';
+    await order.save();
+
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error('Ошибка при взятии заказа:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при взятии заказа' });
+  }
+}
+
+async function releaseOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const order = await Order.findByPk(id);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Заказ не найден' });
+    }
+
+    if (order.assignedTo !== req.user.userId && req.user.role !== 'admin') {
+      return res.status(403).json({ success: false, error: 'Вы не можете снять чужой заказ' });
+    }
+
+    order.assignedTo = null;
+    order.assignedName = null;
+    await order.save();
+
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error('Ошибка при освобождении заказа:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при освобождении заказа' });
+  }
+}
+
+async function createOrder(req, res) {
+  try {
+    const { clientId, title, status, notes } = req.body;
+
+    if (!clientId || !title) {
+      return res.status(400).json({
+        success: false,
+        error: 'Клиент и название обязательны',
+      });
+    }
+
+    const client = await Client.findOne({
+      where: { id: clientId, userId: req.user.userId },
+    });
+
+    if (!client) {
+      return res.status(400).json({
+        success: false,
+        error: 'Клиент не найден',
+      });
+    }
+
+    const order = await Order.create({
+      userId: req.user.userId,
+      clientId,
+      title,
+      status: status || 'Обработка',
+      notes: notes || '',
+    });
+
+    res.status(201).json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Ошибка при создании заказа:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при создании заказа',
+    });
+  }
+}
+
+async function getOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const { Op } = require('sequelize');
+    const ownerCheck = req.user.role === 'admin'
+      ? { id }
+      : { id, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
+    const order = await Order.findOne({
+      where: ownerCheck,
+      include: [
+        { model: Client, attributes: ['id', 'name'] },
+        { model: OrderCalculator },
+        { model: Design },
+        { model: CostEstimate },
+        {
+          model: ProductionBreakdown,
+          include: [{ model: ProductionCompany }],
+        },
+      ],
+    });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Заказ не найден',
+      });
+    }
+
+    res.json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Ошибка при получении заказа:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при получении заказа',
+    });
+  }
+}
+
+async function updateOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const { title, status, notes, deadline, paymentStatus, marginPercent } = req.body;
+    const { Op } = require('sequelize');
+    const whereClause = req.user.role === 'admin'
+      ? { id }
+      : { id, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
+    const order = await Order.findOne({ where: whereClause });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Заказ не найден',
+      });
+    }
+
+    if (title !== undefined) order.title = title;
+    if (status !== undefined) order.status = status;
+    if (notes !== undefined) order.notes = notes;
+    if (deadline !== undefined) order.deadline = deadline;
+    if (paymentStatus !== undefined) order.paymentStatus = paymentStatus;
+    if (marginPercent !== undefined) order.marginPercent = marginPercent;
+
+    await order.save();
+
+    res.json({
+      success: true,
+      data: order,
+    });
+  } catch (error) {
+    console.error('Ошибка при обновлении заказа:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при обновлении заказа',
+    });
+  }
+}
+
+async function deleteOrder(req, res) {
+  try {
+    const { id } = req.params;
+    const { Op } = require('sequelize');
+    const whereClause = req.user.role === 'admin'
+      ? { id }
+      : { id, userId: req.user.userId };
+    const order = await Order.findOne({ where: whereClause });
+
+    if (!order) {
+      return res.status(404).json({
+        success: false,
+        error: 'Заказ не найден',
+      });
+    }
+
+    await order.destroy();
+
+    res.json({
+      success: true,
+      message: 'Заказ удален',
+    });
+  } catch (error) {
+    console.error('Ошибка при удалении заказа:', error.message);
+    res.status(500).json({
+      success: false,
+      error: 'Ошибка при удалении заказа',
+    });
+  }
+}
+
+// ==================== КАЛЬКУЛЯТОРЫ ====================
+
+async function getCalculators(req, res) {
+  try {
+    const { id } = req.params;
+    const calculators = await OrderCalculator.findAll({
+      where: { orderId: id },
+      order: [['createdAt', 'ASC']],
+    });
+    res.json({ success: true, data: calculators });
+  } catch (error) {
+    console.error('Ошибка при получении калькуляторов:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при получении калькуляторов' });
+  }
+}
+
+async function saveCalculator(req, res) {
+  try {
+    const { id } = req.params;
+    const { type, params } = req.body;
+
+    if (!type) {
+      return res.status(400).json({ success: false, error: 'Тип калькулятора обязателен' });
+    }
+
+    // Ищем существующий калькулятор этого типа для этого заказа
+    let calculator = await OrderCalculator.findOne({
+      where: { orderId: id, type },
+    });
+
+    if (calculator) {
+      calculator.params = params || {};
+      await calculator.save();
+    } else {
+      calculator = await OrderCalculator.create({
+        orderId: id,
+        type,
+        params: params || {},
+      });
+    }
+
+    res.json({ success: true, data: calculator });
+  } catch (error) {
+    console.error('Ошибка при сохранении калькулятора:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при сохранении калькулятора' });
+  }
+}
+
+async function deleteCalculator(req, res) {
+  try {
+    const { calcId } = req.params;
+    const calc = await OrderCalculator.findByPk(calcId);
+    if (!calc) {
+      return res.status(404).json({ success: false, error: 'Калькулятор не найден' });
+    }
+    await calc.destroy();
+    res.json({ success: true, message: 'Калькулятор удалён' });
+  } catch (error) {
+    console.error('Ошибка при удалении калькулятора:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при удалении калькулятора' });
+  }
+}
+
+// ==================== РАЗБИВКА ПО ПРОИЗВОДСТВАМ ====================
+
+async function getBreakdown(req, res) {
+  try {
+    const { id } = req.params;
+    const breakdown = await ProductionBreakdown.findAll({
+      where: { orderId: id },
+      include: [{ model: ProductionCompany, attributes: ['id', 'name', 'info', 'cooperation'] }],
+    });
+    res.json({ success: true, data: breakdown });
+  } catch (error) {
+    console.error('Ошибка при получении разбивки:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при получении разбивки' });
+  }
+}
+
+async function addBreakdown(req, res) {
+  try {
+    const { id } = req.params;
+    const { productionId, amount, techTask } = req.body;
+
+    if (!productionId) {
+      return res.status(400).json({ success: false, error: 'Производство обязательно' });
+    }
+
+    const item = await ProductionBreakdown.create({
+      orderId: id,
+      productionId,
+      amount: amount || 0,
+      techTask: techTask || '',
+    });
+
+    const itemWithCompany = await ProductionBreakdown.findByPk(item.id, {
+      include: [{ model: ProductionCompany, attributes: ['id', 'name', 'info', 'cooperation'] }],
+    });
+
+    res.status(201).json({ success: true, data: itemWithCompany });
+  } catch (error) {
+    console.error('Ошибка при добавлении разбивки:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при добавлении разбивки' });
+  }
+}
+
+async function updateBreakdown(req, res) {
+  try {
+    const { breakdownId } = req.params;
+    const { amount, techTask } = req.body;
+
+    const item = await ProductionBreakdown.findByPk(breakdownId);
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Запись не найдена' });
+    }
+
+    if (amount !== undefined) item.amount = amount;
+    if (techTask !== undefined) item.techTask = techTask;
+    await item.save();
+
+    const updated = await ProductionBreakdown.findByPk(item.id, {
+      include: [{ model: ProductionCompany, attributes: ['id', 'name', 'info', 'cooperation'] }],
+    });
+
+    res.json({ success: true, data: updated });
+  } catch (error) {
+    console.error('Ошибка при обновлении разбивки:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при обновлении разбивки' });
+  }
+}
+
+async function deleteBreakdown(req, res) {
+  try {
+    const { breakdownId } = req.params;
+    const item = await ProductionBreakdown.findByPk(breakdownId);
+    if (!item) {
+      return res.status(404).json({ success: false, error: 'Запись не найдена' });
+    }
+    await item.destroy();
+    res.json({ success: true, message: 'Запись удалена' });
+  } catch (error) {
+    console.error('Ошибка при удалении разбивки:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при удалении разбивки' });
+  }
+}
+
+// ==================== МАКЕТЫ (DESIGNS) ====================
+
+async function getDesigns(req, res) {
+  try {
+    const { id } = req.params;
+    const designs = await Design.findAll({
+      where: { orderId: id },
+      order: [['uploadedAt', 'DESC']],
+    });
+    res.json({ success: true, data: designs });
+  } catch (error) {
+    console.error('Ошибка при получении макетов:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при получении макетов' });
+  }
+}
+
+async function deleteDesign(req, res) {
+  try {
+    const { designId } = req.params;
+    const design = await Design.findByPk(designId);
+    if (!design) {
+      return res.status(404).json({ success: false, error: 'Макет не найден' });
+    }
+    await design.destroy();
+    res.json({ success: true, message: 'Макет удалён' });
+  } catch (error) {
+    console.error('Ошибка при удалении макета:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при удалении макета' });
+  }
+}
+
+// ==================== СМЕТЫ ТРАТ ====================
+
+async function getEstimates(req, res) {
+  try {
+    const { id } = req.params;
+    const estimates = await CostEstimate.findAll({
+      where: { orderId: id },
+      order: [['uploadedAt', 'DESC']],
+    });
+    res.json({ success: true, data: estimates });
+  } catch (error) {
+    console.error('Ошибка при получении смет:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при получении смет' });
+  }
+}
+
+async function updateEstimate(req, res) {
+  try {
+    const { estimateId } = req.params;
+    const { extractedAmount } = req.body;
+
+    const estimate = await CostEstimate.findByPk(estimateId);
+    if (!estimate) {
+      return res.status(404).json({ success: false, error: 'Смета не найдена' });
+    }
+
+    if (extractedAmount !== undefined) estimate.extractedAmount = extractedAmount;
+    await estimate.save();
+
+    res.json({ success: true, data: estimate });
+  } catch (error) {
+    console.error('Ошибка при обновлении сметы:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при обновлении сметы' });
+  }
+}
+
+async function deleteEstimate(req, res) {
+  try {
+    const { estimateId } = req.params;
+    const estimate = await CostEstimate.findByPk(estimateId);
+    if (!estimate) {
+      return res.status(404).json({ success: false, error: 'Смета не найдена' });
+    }
+    await estimate.destroy();
+    res.json({ success: true, message: 'Смета удалена' });
+  } catch (error) {
+    console.error('Ошибка при удалении сметы:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при удалении сметы' });
+  }
+}
+
+// ==================== СООБЩЕНИЯ ЗАКАЗА ====================
+
+async function getOrderMessages(req, res) {
+  try {
+    const { id } = req.params;
+    const messages = await Message.findAll({
+      where: { orderId: id },
+      include: [{ model: User, attributes: ['id', 'fullName'] }],
+      order: [['createdAt', 'ASC']],
+      limit: 100,
+    });
+    res.json({ success: true, data: messages });
+  } catch (error) {
+    console.error('Ошибка при получении сообщений:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при получении сообщений' });
+  }
+}
+
+async function addOrderMessage(req, res) {
+  try {
+    const { id } = req.params;
+    const { text } = req.body;
+
+    if (!text) {
+      return res.status(400).json({ success: false, error: 'Текст сообщения обязателен' });
+    }
+
+    const message = await Message.create({
+      orderId: id,
+      userId: req.user.userId,
+      text,
+      files: [],
+    });
+
+    const full = await Message.findByPk(message.id, {
+      include: [{ model: User, attributes: ['id', 'fullName'] }],
+    });
+
+    res.status(201).json({ success: true, data: full });
+  } catch (error) {
+    console.error('Ошибка при отправке сообщения:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при отправке сообщения' });
+  }
+}
+
+module.exports = {
+  getOrders,
+  createOrder,
+  getOrder,
+  updateOrder,
+  deleteOrder,
+  takeOrder,
+  releaseOrder,
+  // Калькуляторы
+  getCalculators,
+  saveCalculator,
+  deleteCalculator,
+  // Разбивка по производствам
+  getBreakdown,
+  addBreakdown,
+  updateBreakdown,
+  deleteBreakdown,
+  // Макеты
+  getDesigns,
+  deleteDesign,
+  // Сметы
+  getEstimates,
+  updateEstimate,
+  deleteEstimate,
+  // Сообщения заказа
+  getOrderMessages,
+  addOrderMessage,
+};
