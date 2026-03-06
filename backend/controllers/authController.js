@@ -1,6 +1,8 @@
 const { User } = require('../models');
 const { hashPassword, validatePassword } = require('../utils/hash');
 const { generateToken } = require('../utils/token');
+const path = require('path');
+const fs = require('fs');
 
 async function login(req, res) {
   try {
@@ -38,6 +40,11 @@ async function login(req, res) {
 
     const token = generateToken(user.id, user.role);
 
+    // Update status to online on login
+    user.status = 'online';
+    user.lastSeen = new Date();
+    await user.save();
+
     res.json({
       success: true,
       data: {
@@ -46,6 +53,8 @@ async function login(req, res) {
           fullName: user.fullName,
           email: user.email,
           role: user.role,
+          avatar: user.avatar,
+          status: user.status,
         },
         token,
       },
@@ -78,6 +87,8 @@ async function getMe(req, res) {
         email: user.email,
         role: user.role,
         active: user.active,
+        avatar: user.avatar,
+        status: user.status,
       },
     });
   } catch (error) {
@@ -133,10 +144,66 @@ async function updateProfile(req, res) {
     }
     user.fullName = fullName.trim();
     await user.save();
-    res.json({ success: true, data: { id: user.id, fullName: user.fullName, email: user.email, role: user.role } });
+    res.json({ success: true, data: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, avatar: user.avatar, status: user.status } });
   } catch (error) {
     console.error('Ошибка при обновлении профиля:', error.message);
     res.status(500).json({ success: false, error: 'Ошибка при обновлении профиля' });
+  }
+}
+
+async function updateAvatar(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'Файл не загружен' });
+    }
+    const user = await User.findByPk(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+
+    // Delete old avatar file
+    if (user.avatar) {
+      const oldPath = path.join(__dirname, '..', user.avatar);
+      if (fs.existsSync(oldPath)) fs.unlinkSync(oldPath);
+    }
+
+    user.avatar = '/uploads/' + req.file.filename;
+    await user.save();
+    res.json({ success: true, data: { avatar: user.avatar } });
+  } catch (error) {
+    console.error('Ошибка при загрузке аватара:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при загрузке аватара' });
+  }
+}
+
+async function updateStatus(req, res) {
+  try {
+    const { status } = req.body;
+    const allowed = ['online', 'away', 'offline'];
+    if (!allowed.includes(status)) {
+      return res.status(400).json({ success: false, error: 'Недопустимый статус' });
+    }
+    const user = await User.findByPk(req.user.userId);
+    if (!user) return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+    user.status = status;
+    user.lastSeen = new Date();
+    await user.save();
+    res.json({ success: true, data: { status: user.status } });
+  } catch (error) {
+    console.error('Ошибка при обновлении статуса:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при обновлении статуса' });
+  }
+}
+
+async function getOnlineUsers(req, res) {
+  try {
+    const users = await User.findAll({
+      where: { active: true },
+      attributes: ['id', 'fullName', 'avatar', 'status', 'lastSeen', 'role'],
+      order: [['fullName', 'ASC']],
+    });
+    res.json({ success: true, data: users });
+  } catch (error) {
+    console.error('Ошибка при получении пользователей:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка' });
   }
 }
 
@@ -145,4 +212,7 @@ module.exports = {
   getMe,
   changePassword,
   updateProfile,
+  updateAvatar,
+  updateStatus,
+  getOnlineUsers,
 };

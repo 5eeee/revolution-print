@@ -27,6 +27,19 @@ const User = sequelize.define('User', {
     type: DataTypes.ENUM('admin', 'manager', 'production', 'owner'),
     defaultValue: 'manager',
   },
+  avatar: {
+    type: DataTypes.STRING,
+    allowNull: true,
+    defaultValue: null,
+  },
+  status: {
+    type: DataTypes.ENUM('online', 'away', 'offline'),
+    defaultValue: 'offline',
+  },
+  lastSeen: {
+    type: DataTypes.DATE,
+    allowNull: true,
+  },
   active: {
     type: DataTypes.BOOLEAN,
     defaultValue: true,

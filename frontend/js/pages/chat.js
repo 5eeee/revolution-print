@@ -1,6 +1,7 @@
 const chatPage = (() => {
   let messages = [];
   let orders = [];
+  let onlineUsers = [];
   let refreshTimer = null;
 
   async function loadMessages() {
@@ -19,8 +20,28 @@ const chatPage = (() => {
     } catch { orders = []; }
   }
 
+  async function loadOnlineUsers() {
+    try {
+      const response = await api.getRequest('/auth/users/online');
+      if (response.success) onlineUsers = response.data;
+    } catch { onlineUsers = []; }
+  }
+
+  function getUserAvatar(u, size = 28) {
+    const baseUrl = api.baseUrl.replace('/api', '');
+    if (u.avatar) {
+      return `<img src="${baseUrl}${escapeHtml(u.avatar)}" class="chat-avatar" style="width:${size}px;height:${size}px;" />`;
+    }
+    return `<div class="chat-avatar-placeholder" style="width:${size}px;height:${size}px;font-size:${Math.round(size * 0.43)}px;">${(u.fullName || u.name || '?')[0].toUpperCase()}</div>`;
+  }
+
+  function getStatusDot(status) {
+    const colors = { online: '#22c55e', away: '#eab308', offline: '#9ca3af' };
+    return `<span class="status-dot" style="background:${colors[status] || colors.offline};"></span>`;
+  }
+
   async function render(container) {
-    await Promise.all([loadMessages(), loadOrders()]);
+    await Promise.all([loadMessages(), loadOrders(), loadOnlineUsers()]);
     const user = authModule.getUser();
 
     container.innerHTML = `
@@ -68,24 +89,8 @@ const chatPage = (() => {
         <div style="width: 220px; display: flex; flex-direction: column; gap: 10px; flex-shrink: 0;">
           <div class="card" style="padding: 14px;">
             <h4 style="margin: 0 0 10px;">Участники</h4>
-            <div style="font-size: 13px;">
-              <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; border-bottom: 1px solid var(--line);">
-                <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--copper); color: white; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                  ${(user.fullName || user.email || '?')[0].toUpperCase()}
-                </div>
-                <div>
-                  <div style="font-weight: 500;">${escapeHtml(user.fullName || user.email)}</div>
-                  <div class="subtle" style="font-size: 10px;">Вы</div>
-                </div>
-              </div>
-              ${getUniqueUsers(messages, user.id).map(u => `
-                <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0;">
-                  <div style="width: 28px; height: 28px; border-radius: 50%; background: var(--line); display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: bold;">
-                    ${(u.name || '?')[0].toUpperCase()}
-                  </div>
-                  <div style="font-weight: 500;">${escapeHtml(u.name)}</div>
-                </div>
-              `).join('')}
+            <div id="chatUsersList" style="font-size: 13px;">
+              ${renderUsersList(user)}
             </div>
           </div>
 
@@ -232,9 +237,39 @@ const chatPage = (() => {
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(async () => {
       const prevCount = messages.length;
-      await loadMessages();
+      await Promise.all([loadMessages(), loadOnlineUsers()]);
       if (messages.length !== prevCount) renderMessages(container, user);
+      // Update users list
+      const usersEl = document.getElementById('chatUsersList');
+      if (usersEl) usersEl.innerHTML = renderUsersList(user);
     }, 10000);
+  }
+
+  function renderUsersList(currentUser) {
+    const statusLabels = { online: 'Онлайн', away: 'Отошёл', offline: 'Оффлайн' };
+    // Sorted: current user first, then by status (online > away > offline)
+    const priority = { online: 0, away: 1, offline: 2 };
+    const sorted = [...onlineUsers].sort((a, b) => {
+      if (a.id === currentUser.id) return -1;
+      if (b.id === currentUser.id) return 1;
+      return (priority[a.status] || 2) - (priority[b.status] || 2);
+    });
+
+    return sorted.map(u => {
+      const isMe = u.id === currentUser.id;
+      return `
+        <div style="display: flex; align-items: center; gap: 8px; padding: 6px 0; ${isMe ? 'border-bottom: 1px solid var(--line);' : ''}">
+          <div style="position: relative; flex-shrink: 0;">
+            ${getUserAvatar(u, 28)}
+            ${getStatusDot(isMe ? (currentUser.status || 'online') : u.status)}
+          </div>
+          <div style="min-width: 0;">
+            <div style="font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">${escapeHtml(u.fullName)}</div>
+            <div class="subtle" style="font-size: 10px;">${isMe ? 'Вы' : (statusLabels[u.status] || 'Оффлайн')}</div>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   function renderMessagesList(user) {
@@ -263,17 +298,22 @@ const chatPage = (() => {
         </div>
       ` : '';
       const orderTag = m.orderId ? `<div style="font-size: 10px; margin-bottom: 4px; color: var(--copper); cursor: pointer;" class="chat-order-link" data-order-id="${m.orderId}">${icon('clipboard', 10)} Заказ #${m.orderId}</div>` : '';
+      const msgUser = m.User || {};
+      const avatarHtml = !isOwn ? `<div style="flex-shrink: 0; align-self: flex-end;">${getUserAvatar(msgUser, 30)}</div>` : '';
       return `
-        <div style="display: flex; flex-direction: column; align-items: ${isOwn ? 'flex-end' : 'flex-start'}; max-width: 75%; ${isOwn ? 'align-self: flex-end;' : ''}">
-          <div style="padding: 10px 14px; border-radius: ${isOwn ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
-            background: ${isOwn ? 'rgba(134, 75, 18, 0.1)' : 'var(--panel)'}; 
-            border: 1px solid ${isOwn ? 'rgba(134, 75, 18, 0.2)' : 'var(--line)'};">
-            ${!isOwn ? `<div style="font-size: 11px; font-weight: 600; color: var(--copper); margin-bottom: 4px;">${escapeHtml(m.User?.fullName || 'Пользователь')}</div>` : ''}
-            ${orderTag}
-            <div style="font-size: 13px; white-space: pre-wrap;">${escapeHtml(m.text)}</div>
-            ${filesHtml}
+        <div style="display: flex; gap: 8px; align-items: flex-start; max-width: 75%; ${isOwn ? 'align-self: flex-end; flex-direction: row-reverse;' : ''}">
+          ${avatarHtml}
+          <div style="display: flex; flex-direction: column; align-items: ${isOwn ? 'flex-end' : 'flex-start'};">
+            <div style="padding: 10px 14px; border-radius: ${isOwn ? '14px 14px 4px 14px' : '14px 14px 14px 4px'};
+              background: ${isOwn ? 'rgba(134, 75, 18, 0.1)' : 'var(--panel)'}; 
+              border: 1px solid ${isOwn ? 'rgba(134, 75, 18, 0.2)' : 'var(--line)'};">
+              ${!isOwn ? `<div style="font-size: 11px; font-weight: 600; color: var(--copper); margin-bottom: 4px;">${escapeHtml(msgUser.fullName || 'Пользователь')}</div>` : ''}
+              ${orderTag}
+              <div style="font-size: 13px; white-space: pre-wrap;">${escapeHtml(m.text)}</div>
+              ${filesHtml}
+            </div>
+            <span class="subtle" style="font-size: 10px; margin-top: 2px; padding: 0 6px;">${formatMsgTime(m.createdAt)}</span>
           </div>
-          <span class="subtle" style="font-size: 10px; margin-top: 2px; padding: 0 6px;">${formatMsgTime(m.createdAt)}</span>
         </div>
       `;
     }).join('');

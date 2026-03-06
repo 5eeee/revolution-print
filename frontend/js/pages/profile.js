@@ -12,10 +12,36 @@ const profilePage = (() => {
     const user = authModule.getUser();
     await loadSettings();
 
+    const statusLabels = { online: 'Онлайн', away: 'Отошёл', offline: 'Оффлайн' };
+    const statusColors = { online: '#22c55e', away: '#eab308', offline: '#9ca3af' };
+    const currentStatus = user.status || 'offline';
+    const avatarUrl = user.avatar ? api.baseUrl.replace('/api', '') + user.avatar : '';
+
     const html = `
       <div class="grid">
         <div class="card" style="grid-column: span 6;">
           <h2>Личный кабинет</h2>
+
+          <!-- Аватар -->
+          <div style="display: flex; align-items: center; gap: 20px; margin-top: 20px;">
+            <div class="profile-avatar-wrapper" id="avatarWrapper" style="position: relative; cursor: pointer;" title="Нажмите чтобы сменить аватар">
+              ${avatarUrl
+                ? `<img id="profileAvatarImg" src="${escapeHtml(avatarUrl)}" class="profile-avatar-img" />`
+                : `<div id="profileAvatarImg" class="profile-avatar-placeholder">${(user.fullName || '?')[0].toUpperCase()}</div>`
+              }
+              <div class="profile-avatar-overlay">${icon('edit', 16, '#fff')}</div>
+            </div>
+            <div>
+              <div style="font-weight: 600; font-size: 18px;">${escapeHtml(user.fullName)}</div>
+              <div class="subtle" style="font-size: 13px;">${escapeHtml(user.email)}</div>
+              <div style="margin-top: 6px;">
+                <select id="profileStatus" style="padding: 4px 10px; border-radius: 14px; border: 2px solid ${statusColors[currentStatus]}; font-size: 12px; font-weight: 600; color: ${statusColors[currentStatus]}; background: ${statusColors[currentStatus]}15; cursor: pointer;">
+                  ${Object.entries(statusLabels).map(([k, v]) => `<option value="${k}" ${k === currentStatus ? 'selected' : ''}>${v}</option>`).join('')}
+                </select>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="avatarInput" accept="image/*" style="display: none;" />
 
           <div class="field" style="margin-top: 20px;">
             <label>ФИО</label>
@@ -89,11 +115,58 @@ const profilePage = (() => {
       const fullName = document.getElementById('profileName').value.trim();
       if (!fullName) { showToast('Введите ФИО'); return; }
       try {
-        await api.putRequest('/auth/profile', { fullName });
-        user.fullName = fullName;
-        authModule.setUser(user);
-        showToast('Профиль обновлён');
+        const res = await api.putRequest('/auth/profile', { fullName });
+        if (res.success) {
+          user.fullName = fullName;
+          authModule.setUser(user);
+          showToast('Профиль обновлён');
+        }
       } catch (error) { showToast('Ошибка: ' + error.message); }
+    });
+
+    // Avatar upload
+    document.getElementById('avatarWrapper').addEventListener('click', () => {
+      document.getElementById('avatarInput').click();
+    });
+
+    document.getElementById('avatarInput').addEventListener('change', async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      if (!file.type.startsWith('image/')) { showToast('Выберите изображение'); return; }
+      if (file.size > 5 * 1024 * 1024) { showToast('Максимум 5 МБ'); return; }
+
+      const formData = new FormData();
+      formData.append('avatar', file);
+
+      try {
+        const token = localStorage.getItem('token');
+        const response = await fetch(api.baseUrl + '/auth/avatar', {
+          method: 'POST',
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          body: formData,
+        });
+        const res = await response.json();
+        if (!response.ok) throw new Error(res.error || 'Ошибка');
+        user.avatar = res.data.avatar;
+        authModule.setUser(user);
+        showToast('Аватар обновлён');
+        render(container);
+      } catch (err) { showToast('Ошибка: ' + err.message); }
+    });
+
+    // Status change
+    document.getElementById('profileStatus').addEventListener('change', async (e) => {
+      const newStatus = e.target.value;
+      try {
+        await api.putRequest('/auth/status', { status: newStatus });
+        user.status = newStatus;
+        authModule.setUser(user);
+        const colors = { online: '#22c55e', away: '#eab308', offline: '#9ca3af' };
+        e.target.style.borderColor = colors[newStatus];
+        e.target.style.color = colors[newStatus];
+        e.target.style.background = colors[newStatus] + '15';
+        showToast('Статус обновлён');
+      } catch (err) { showToast('Ошибка: ' + err.message); }
     });
 
     document.getElementById('btnSaveSettings').addEventListener('click', async () => {

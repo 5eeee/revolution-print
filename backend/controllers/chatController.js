@@ -24,7 +24,7 @@ async function getMessages(req, res) {
 
     const messages = await Message.findAll({
       where,
-      include: [{ model: User, attributes: ['id', 'fullName'] }],
+      include: [{ model: User, attributes: ['id', 'fullName', 'avatar', 'status'] }],
       order: [['createdAt', 'ASC']],
       limit,
     });
@@ -62,7 +62,7 @@ async function createMessage(req, res) {
     });
 
     const messageWithUser = await Message.findByPk(message.id, {
-      include: [{ model: User, attributes: ['id', 'fullName'] }],
+      include: [{ model: User, attributes: ['id', 'fullName', 'avatar', 'status'] }],
     });
 
     res.status(201).json({

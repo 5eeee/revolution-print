@@ -122,6 +122,28 @@ const appModule = (() => {
     const user = authModule.getUser();
     document.getElementById('whoName').textContent = user.fullName;
     document.getElementById('whoRole').textContent = user.role;
+
+    // Sidebar avatar
+    const avatarEl = document.getElementById('sidebarAvatar');
+    if (avatarEl) {
+      if (user.avatar) {
+        avatarEl.style.backgroundImage = `url(${api.baseUrl.replace('/api', '')}${user.avatar})`;
+        avatarEl.style.backgroundSize = 'cover';
+        avatarEl.style.backgroundPosition = 'center';
+        avatarEl.textContent = '';
+      } else {
+        avatarEl.style.backgroundImage = '';
+        avatarEl.textContent = (user.fullName || '?')[0].toUpperCase();
+      }
+    }
+
+    // Sidebar status dot
+    const statusDot = document.getElementById('sidebarStatusDot');
+    if (statusDot) {
+      const colors = { online: '#22c55e', away: '#eab308', offline: '#9ca3af' };
+      statusDot.style.background = colors[user.status] || colors.offline;
+    }
+
     const navItem = navItems.find(i => i.id === currentPage);
     document.getElementById('topTitle').textContent = navItem?.title || pageTitles[currentPage] || 'Страница';
   }
@@ -132,6 +154,12 @@ const appModule = (() => {
       now.getMinutes().toString().padStart(2, '0');
     const el = document.getElementById('presencePill');
     if (el) el.textContent = `● ${time}`;
+
+    // Heartbeat: keep status online
+    const user = authModule.getUser();
+    if (user.status !== 'away') {
+      api.putRequest('/auth/status', { status: 'online' }).catch(() => {});
+    }
   }
 
   async function goToPage(pageId, params = {}) {
