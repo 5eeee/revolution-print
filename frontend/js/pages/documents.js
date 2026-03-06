@@ -126,6 +126,7 @@ const documentsPage = (() => {
                         <button class="btn ghost btn-word-doc" data-id="${d.id}" style="padding: 6px 12px; font-size: 12px;">Word</button>
                         <button class="btn ghost btn-excel-doc" data-id="${d.id}" style="padding: 6px 12px; font-size: 12px;">Excel</button>
                         <button class="btn ghost btn-pdf-doc" data-id="${d.id}" style="padding: 6px 12px; font-size: 12px;">PDF</button>
+                        <button class="btn ghost btn-del-doc" data-id="${d.id}" style="padding: 6px 12px; font-size: 12px; color: #c33;">${icon('trash', 12)}</button>
                       </td>
                     </tr>
                   `;
@@ -176,6 +177,19 @@ const documentsPage = (() => {
     // PDF (print)
     document.querySelectorAll('.btn-pdf-doc').forEach(btn => {
       btn.addEventListener('click', () => printDoc(btn.dataset.id));
+    });
+
+    // Удаление
+    document.querySelectorAll('.btn-del-doc').forEach(btn => {
+      btn.addEventListener('click', async () => {
+        if (!confirm('Удалить документ?')) return;
+        try {
+          await api.deleteRequest(`/documents/${btn.dataset.id}`);
+          showToast('Документ удалён');
+          documents = documents.filter(d => d.id != btn.dataset.id);
+          render(container);
+        } catch (e) { showToast('Ошибка: ' + e.message); }
+      });
     });
   }
 
