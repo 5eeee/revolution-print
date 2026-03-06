@@ -156,7 +156,7 @@ async function updateOrder(req, res) {
     if (notes !== undefined) order.notes = notes;
     if (deadline !== undefined) order.deadline = deadline;
     if (paymentStatus !== undefined) order.paymentStatus = paymentStatus;
-    if (marginPercent !== undefined) order.marginPercent = marginPercent;
+    if (marginPercent !== undefined) order.marginPercent = Math.max(0, parseInt(marginPercent) || 0);
 
     await order.save();
 

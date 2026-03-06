@@ -103,6 +103,11 @@ async function updateUser(req, res) {
       });
     }
 
+    // Нельзя менять роль админа
+    if (role !== undefined && user.role === 'admin' && role !== 'admin') {
+      return res.status(400).json({ success: false, error: 'Нельзя понизить роль администратора' });
+    }
+
     if (fullName !== undefined) user.fullName = fullName;
     if (role !== undefined) user.role = role;
     if (active !== undefined) user.active = active;

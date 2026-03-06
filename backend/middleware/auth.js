@@ -1,6 +1,7 @@
 const { verifyToken } = require('../utils/token');
+const { User } = require('../models');
 
-function authMiddleware(req, res, next) {
+async function authMiddleware(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -20,9 +21,21 @@ function authMiddleware(req, res, next) {
     });
   }
 
+  // Проверить что пользователь существует и активен
+  const user = await User.findByPk(decoded.userId, {
+    attributes: ['id', 'role', 'active'],
+  });
+
+  if (!user || !user.active) {
+    return res.status(401).json({
+      success: false,
+      error: 'Аккаунт не найден или отключен',
+    });
+  }
+
   req.user = {
-    userId: decoded.userId,
-    role: decoded.role,
+    userId: user.id,
+    role: user.role,
   };
 
   next();

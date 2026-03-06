@@ -121,8 +121,28 @@ async function changePassword(req, res) {
   }
 }
 
+async function updateProfile(req, res) {
+  try {
+    const { fullName } = req.body;
+    if (!fullName || !fullName.trim()) {
+      return res.status(400).json({ success: false, error: 'ФИО обязательно' });
+    }
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+    }
+    user.fullName = fullName.trim();
+    await user.save();
+    res.json({ success: true, data: { id: user.id, fullName: user.fullName, email: user.email, role: user.role } });
+  } catch (error) {
+    console.error('Ошибка при обновлении профиля:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при обновлении профиля' });
+  }
+}
+
 module.exports = {
   login,
   getMe,
   changePassword,
+  updateProfile,
 };

@@ -89,10 +89,11 @@ const profilePage = (() => {
       const fullName = document.getElementById('profileName').value.trim();
       if (!fullName) { showToast('Введите ФИО'); return; }
       try {
+        await api.putRequest('/auth/profile', { fullName });
         user.fullName = fullName;
         authModule.setUser(user);
         showToast('Профиль обновлён');
-      } catch (error) { showToast('Ошибка при обновлении'); }
+      } catch (error) { showToast('Ошибка: ' + error.message); }
     });
 
     document.getElementById('btnSaveSettings').addEventListener('click', async () => {

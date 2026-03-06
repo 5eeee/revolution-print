@@ -21,6 +21,17 @@ async function uploadFile(req, res) {
       });
     }
 
+    // Проверка доступа к заказу перед загрузкой
+    if (orderId && type !== 'chat') {
+      const orderWhere = req.user.role === 'admin'
+        ? { id: orderId }
+        : { id: orderId, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
+      const orderExists = await Order.findOne({ where: orderWhere });
+      if (!orderExists) {
+        return res.status(403).json({ success: false, error: 'Нет доступа к этому заказу' });
+      }
+    }
+
     const fileData = {
       fileName: req.file.filename,
       filePath: req.file.path,

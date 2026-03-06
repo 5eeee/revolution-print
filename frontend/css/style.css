@@ -643,20 +643,53 @@ textarea:focus {
   .sidebar,
   .topbar,
   .modal-backdrop,
-  .toast {
+  .toast,
+  .btn,
+  button,
+  select,
+  input[type="file"],
+  nav {
     display: none !important;
-  }
-
-  .content {
-    padding: 0;
-  }
-
-  .card {
-    box-shadow: none;
-    border: 1px solid #ddd;
   }
 
   body {
     background: #fff;
+    color: #000;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  .content {
+    padding: 0;
+    margin: 0;
+  }
+
+  .card {
+    box-shadow: none;
+    border: none;
+    page-break-inside: avoid;
+  }
+
+  .grid {
+    display: block;
+  }
+
+  #printArea {
+    box-shadow: none !important;
+    padding: 0 !important;
+  }
+
+  table {
+    width: 100% !important;
+    page-break-inside: auto;
+  }
+
+  tr {
+    page-break-inside: avoid;
+  }
+
+  a {
+    text-decoration: none;
+    color: #000;
   }
 }

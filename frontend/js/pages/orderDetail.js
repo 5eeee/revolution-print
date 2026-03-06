@@ -848,7 +848,7 @@ const orderDetailPage = (() => {
     body.innerHTML = `
       <div class="field">
         <label>Процент маржи (%)</label>
-        <input id="marginInput" type="number" value="${currentMargin}" min="0" max="500" 
+        <input id="marginInput" type="number" value="${currentMargin}" min="0" max="500" step="1" 
           style="padding: 10px; border-radius: 8px; border: 1px solid var(--line); width: 100%;" />
       </div>
       <div style="margin-top: 12px; padding: 10px; background: rgba(134, 75, 18, 0.08); border-radius: 8px;" id="marginPreview">
