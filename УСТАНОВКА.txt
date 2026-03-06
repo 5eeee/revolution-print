@@ -28,7 +28,7 @@ DB_PASSWORD=пароль_от_postgresql
 
 start-dev.bat
 
-Он сам установит зависимости и покажет инструкции.
+Он сам установит зависимости и запустит оба сервера.
 
 Способ Б — вручную (надёжнее):
 
@@ -36,13 +36,14 @@ start-dev.bat
 
 cd "D:\revolution print\backend"
 npm install
-node seed.js
 node server.js
+
+При первом запуске сервер сам создаст администратора в базе данных.
 
 Открыть второй PowerShell:
 
 cd "D:\revolution print\frontend"
-npx http-server -p 8080 -c-1
+npx -y http-server -p 8080 -c-1
 
 6. Готово
 Открыть браузер: http://localhost:8080
