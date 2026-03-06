@@ -1,4 +1,4 @@
-const { Document, Order, Client, OrderCalculator, ProductionBreakdown, ProductionCompany, CompanySetting } = require('../models');
+const { Document, Order, Client, CompanySetting } = require('../models');
 const { Op } = require('sequelize');
 
 async function getDocuments(req, res) {
@@ -9,14 +9,22 @@ async function getDocuments(req, res) {
     if (orderId) where.orderId = orderId;
     if (clientId) where.clientId = clientId;
 
-    const documents = await Document.findAll({
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 500);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+    const { count, rows } = await Document.findAndCountAll({
       where,
       order: [['createdAt', 'DESC']],
+      limit,
+      offset,
     });
 
     res.json({
       success: true,
-      data: documents,
+      data: rows,
+      total: count,
+      limit,
+      offset,
     });
   } catch (error) {
     console.error('Ошибка при получении документов:', error.message);

@@ -1,6 +1,12 @@
 const { User, CompanySetting } = require('../models');
 const { hashPassword } = require('../utils/hash');
 
+async function getOrCreateSettings(userId) {
+  let settings = await CompanySetting.findOne({ where: { userId } });
+  if (!settings) settings = await CompanySetting.create({ userId });
+  return settings;
+}
+
 async function getUsers(req, res) {
   try {
     if (req.user.role !== 'admin') {
@@ -184,10 +190,7 @@ async function deleteUser(req, res) {
 
 async function getSettings(req, res) {
   try {
-    let settings = await CompanySetting.findOne({ where: { userId: req.user.userId } });
-    if (!settings) {
-      settings = await CompanySetting.create({ userId: req.user.userId });
-    }
+    const settings = await getOrCreateSettings(req.user.userId);
     res.json({ success: true, data: settings });
   } catch (error) {
     console.error('Ошибка настроек:', error.message);
@@ -197,10 +200,7 @@ async function getSettings(req, res) {
 
 async function updateSettings(req, res) {
   try {
-    let settings = await CompanySetting.findOne({ where: { userId: req.user.userId } });
-    if (!settings) {
-      settings = await CompanySetting.create({ userId: req.user.userId });
-    }
+    const settings = await getOrCreateSettings(req.user.userId);
     const { companyName, inn, kpp, address, phone, email, website, bankDetails,
       bankName, bik, corrAccount, accountNumber, signerName, signerTitle, legalForm } = req.body;
     if (companyName !== undefined) settings.companyName = companyName;

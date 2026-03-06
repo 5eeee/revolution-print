@@ -775,9 +775,6 @@ textarea:focus {
   width: 10px; height: 10px; bottom: 0; right: 0;
 }
 
-/* Mobile block */
-.mobile-block {
-
 /* Theme toggle */
 .theme-switch {
   position: relative;

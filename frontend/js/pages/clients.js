@@ -34,24 +34,16 @@ const clientsPage = (() => {
     statusList.forEach(s => { statusCounts[s] = 0; });
     clients.forEach(c => { if (statusCounts[c.status] !== undefined) statusCounts[c.status]++; });
 
-    let filtered = clients;
-    if (filterStatus !== 'all') filtered = filtered.filter(c => c.status === filterStatus);
-    if (searchQuery) {
-      const q = searchQuery.toLowerCase();
-      filtered = filtered.filter(c =>
-        c.name?.toLowerCase().includes(q) ||
-        (c.owner || '').toLowerCase().includes(q) ||
-        (c.comment || '').toLowerCase().includes(q)
-      );
-    }
-    if (dateFrom) {
-      const from = new Date(dateFrom); from.setHours(0,0,0,0);
-      filtered = filtered.filter(c => new Date(c.createdAt) >= from);
-    }
-    if (dateTo) {
-      const to = new Date(dateTo); to.setHours(23,59,59,999);
-      filtered = filtered.filter(c => new Date(c.createdAt) <= to);
-    }
+    const q = searchQuery ? searchQuery.toLowerCase() : '';
+    const fromDate = dateFrom ? new Date(new Date(dateFrom).setHours(0,0,0,0)) : null;
+    const toDate = dateTo ? new Date(new Date(dateTo).setHours(23,59,59,999)) : null;
+    const filtered = clients.filter(c => {
+      if (filterStatus !== 'all' && c.status !== filterStatus) return false;
+      if (q && !c.name?.toLowerCase().includes(q) && !(c.owner || '').toLowerCase().includes(q) && !(c.comment || '').toLowerCase().includes(q)) return false;
+      if (fromDate && new Date(c.createdAt) < fromDate) return false;
+      if (toDate && new Date(c.createdAt) > toDate) return false;
+      return true;
+    });
 
     container.innerHTML = `
       <div class="grid">

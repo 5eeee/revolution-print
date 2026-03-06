@@ -4,6 +4,10 @@ const { generateToken } = require('../utils/token');
 const path = require('path');
 const fs = require('fs');
 
+function formatUserData(user) {
+  return { id: user.id, fullName: user.fullName, email: user.email, role: user.role, avatar: user.avatar, status: user.status };
+}
+
 async function login(req, res) {
   try {
     const { email, password } = req.body;
@@ -48,14 +52,7 @@ async function login(req, res) {
     res.json({
       success: true,
       data: {
-        user: {
-          id: user.id,
-          fullName: user.fullName,
-          email: user.email,
-          role: user.role,
-          avatar: user.avatar,
-          status: user.status,
-        },
+        user: formatUserData(user),
         token,
       },
     });
@@ -82,13 +79,8 @@ async function getMe(req, res) {
     res.json({
       success: true,
       data: {
-        id: user.id,
-        fullName: user.fullName,
-        email: user.email,
-        role: user.role,
+        ...formatUserData(user),
         active: user.active,
-        avatar: user.avatar,
-        status: user.status,
       },
     });
   } catch (error) {
@@ -144,7 +136,7 @@ async function updateProfile(req, res) {
     }
     user.fullName = fullName.trim();
     await user.save();
-    res.json({ success: true, data: { id: user.id, fullName: user.fullName, email: user.email, role: user.role, avatar: user.avatar, status: user.status } });
+    res.json({ success: true, data: formatUserData(user) });
   } catch (error) {
     console.error('Ошибка при обновлении профиля:', error.message);
     res.status(500).json({ success: false, error: 'Ошибка при обновлении профиля' });

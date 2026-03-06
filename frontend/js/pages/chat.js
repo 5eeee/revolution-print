@@ -361,16 +361,6 @@ const chatPage = (() => {
     return base.slice(0, 20) + '…' + ext;
   }
 
-  function getUniqueUsers(msgs, myId) {
-    const map = {};
-    msgs.forEach(m => {
-      if (m.userId !== myId && m.User?.fullName) {
-        map[m.userId] = { name: m.User.fullName };
-      }
-    });
-    return Object.values(map);
-  }
-
   return {
     render,
     destroy() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } },

@@ -16,16 +16,21 @@ async function getOrders(req, res) {
       ? {}
       : { [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
 
-    const orders = await Order.findAll({
+    const limit = Math.min(Math.max(parseInt(req.query.limit) || 100, 1), 500);
+    const offset = Math.max(parseInt(req.query.offset) || 0, 0);
+
+    const { count, rows } = await Order.findAndCountAll({
       where: whereClause,
       include: [
         { model: Client, attributes: ['id', 'name'] },
         { model: User, as: 'Creator', attributes: ['id', 'fullName'] },
       ],
       order: [['createdAt', 'DESC']],
+      limit,
+      offset,
     });
 
-    res.json({ success: true, data: orders });
+    res.json({ success: true, data: rows, total: count, limit, offset });
   } catch (error) {
     console.error('Ошибка при получении заказов:', error.message);
     res.status(500).json({ success: false, error: 'Ошибка при получении заказов' });
