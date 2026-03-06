@@ -38,6 +38,10 @@ async function createDocument(req, res) {
       });
     }
 
+    if (items !== undefined && !Array.isArray(items)) {
+      return res.status(400).json({ success: false, error: 'Позиции должны быть массивом' });
+    }
+
     // Проверка доступа к заказу/клиенту
     if (orderId && req.user.role !== 'admin') {
       const order = await Order.findOne({

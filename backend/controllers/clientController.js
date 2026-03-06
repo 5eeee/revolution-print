@@ -22,7 +22,7 @@ async function getClients(req, res) {
 
 async function createClient(req, res) {
   try {
-    const { name, status, comment } = req.body;
+    const { name, status, owner, comment } = req.body;
 
     if (!name) {
       return res.status(400).json({
@@ -35,6 +35,7 @@ async function createClient(req, res) {
       userId: req.user.userId,
       name,
       status: status || 'Новый',
+      owner: owner || '',
       comment: comment || '',
     });
 

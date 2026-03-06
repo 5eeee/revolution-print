@@ -83,7 +83,7 @@ async function releaseOrder(req, res) {
 
 async function createOrder(req, res) {
   try {
-    const { clientId, title, status, notes } = req.body;
+    const { clientId, title, status, notes, deadline } = req.body;
 
     if (!clientId || !title) {
       return res.status(400).json({ success: false, error: 'Клиент и название обязательны' });
@@ -103,6 +103,7 @@ async function createOrder(req, res) {
       title,
       status: status || 'Обработка',
       notes: notes || '',
+      deadline: deadline || null,
     });
 
     res.status(201).json({ success: true, data: order });
