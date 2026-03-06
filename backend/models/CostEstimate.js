@@ -20,7 +20,7 @@ const CostEstimate = sequelize.define('CostEstimate', {
     allowNull: false,
   },
   extractedAmount: {
-    type: DataTypes.FLOAT,
+    type: DataTypes.DECIMAL(12, 2),
     allowNull: true,
   },
   uploadedAt: {

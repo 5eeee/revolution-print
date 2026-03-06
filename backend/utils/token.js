@@ -1,5 +1,14 @@
 const jwt = require('jsonwebtoken');
 
+function getSecret() {
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    console.warn('WARNING: JWT_SECRET не установлен, используется ключ по умолчанию. Установите JWT_SECRET для продакшна!');
+    return 'revolution_print_dev_secret_key';
+  }
+  return secret;
+}
+
 function generateToken(userId, role) {
   const payload = {
     userId,
@@ -9,7 +18,7 @@ function generateToken(userId, role) {
 
   const token = jwt.sign(
     payload,
-    process.env.JWT_SECRET || 'default_secret_key',
+    getSecret(),
     {
       expiresIn: process.env.JWT_EXPIRES_IN || '7d',
     }
@@ -22,7 +31,7 @@ function verifyToken(token) {
   try {
     const decoded = jwt.verify(
       token,
-      process.env.JWT_SECRET || 'default_secret_key'
+      getSecret()
     );
     return decoded;
   } catch (error) {

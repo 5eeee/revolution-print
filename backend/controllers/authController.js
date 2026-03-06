@@ -89,7 +89,40 @@ async function getMe(req, res) {
   }
 }
 
+async function changePassword(req, res) {
+  try {
+    const { oldPassword, newPassword } = req.body;
+
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, error: 'Все поля обязательны' });
+    }
+
+    if (newPassword.length < 6) {
+      return res.status(400).json({ success: false, error: 'Пароль должен быть не менее 6 символов' });
+    }
+
+    const user = await User.findByPk(req.user.userId);
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'Пользователь не найден' });
+    }
+
+    const isValid = await validatePassword(oldPassword, user.passwordHash);
+    if (!isValid) {
+      return res.status(401).json({ success: false, error: 'Неверный текущий пароль' });
+    }
+
+    user.passwordHash = await hashPassword(newPassword);
+    await user.save();
+
+    res.json({ success: true, message: 'Пароль успешно изменён' });
+  } catch (error) {
+    console.error('Ошибка при смене пароля:', error.message);
+    res.status(500).json({ success: false, error: 'Ошибка при смене пароля' });
+  }
+}
+
 module.exports = {
   login,
   getMe,
+  changePassword,
 };

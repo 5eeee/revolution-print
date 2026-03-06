@@ -1,4 +1,5 @@
 const { Document, Order, Client, OrderCalculator, ProductionBreakdown, ProductionCompany, CompanySetting } = require('../models');
+const { Op } = require('sequelize');
 
 async function getDocuments(req, res) {
   try {
@@ -35,6 +36,18 @@ async function createDocument(req, res) {
         success: false,
         error: 'Тип и название документа обязательны',
       });
+    }
+
+    // Проверка доступа к заказу/клиенту
+    if (orderId && req.user.role !== 'admin') {
+      const order = await Order.findOne({
+        where: { id: orderId, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] },
+      });
+      if (!order) return res.status(403).json({ success: false, error: 'Нет доступа к заказу' });
+    }
+    if (clientId && req.user.role !== 'admin') {
+      const client = await Client.findOne({ where: { id: clientId, userId: req.user.userId } });
+      if (!client) return res.status(403).json({ success: false, error: 'Нет доступа к клиенту' });
     }
 
     const document = await Document.create({

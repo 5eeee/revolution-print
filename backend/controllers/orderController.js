@@ -1,8 +1,17 @@
 const { Order, Client, OrderCalculator, Design, CostEstimate, ProductionBreakdown, ProductionCompany, Message, User } = require('../models');
+const { deleteFile } = require('../utils/fileHandler');
+const { Op } = require('sequelize');
+
+// Хелпер: проверить доступ пользователя к заказу
+async function checkOrderAccess(orderId, user) {
+  const whereClause = user.role === 'admin'
+    ? { id: orderId }
+    : { id: orderId, [Op.or]: [{ userId: user.userId }, { assignedTo: user.userId }] };
+  return Order.findOne({ where: whereClause });
+}
 
 async function getOrders(req, res) {
   try {
-    const { Op } = require('sequelize');
     const whereClause = req.user.role === 'admin'
       ? {}
       : { [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
@@ -16,16 +25,10 @@ async function getOrders(req, res) {
       order: [['createdAt', 'DESC']],
     });
 
-    res.json({
-      success: true,
-      data: orders,
-    });
+    res.json({ success: true, data: orders });
   } catch (error) {
     console.error('Ошибка при получении заказов:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при получении заказов',
-    });
+    res.status(500).json({ success: false, error: 'Ошибка при получении заказов' });
   }
 }
 
@@ -83,10 +86,7 @@ async function createOrder(req, res) {
     const { clientId, title, status, notes } = req.body;
 
     if (!clientId || !title) {
-      return res.status(400).json({
-        success: false,
-        error: 'Клиент и название обязательны',
-      });
+      return res.status(400).json({ success: false, error: 'Клиент и название обязательны' });
     }
 
     const client = await Client.findOne({
@@ -94,10 +94,7 @@ async function createOrder(req, res) {
     });
 
     if (!client) {
-      return res.status(400).json({
-        success: false,
-        error: 'Клиент не найден',
-      });
+      return res.status(400).json({ success: false, error: 'Клиент не найден' });
     }
 
     const order = await Order.create({
@@ -108,28 +105,23 @@ async function createOrder(req, res) {
       notes: notes || '',
     });
 
-    res.status(201).json({
-      success: true,
-      data: order,
-    });
+    res.status(201).json({ success: true, data: order });
   } catch (error) {
     console.error('Ошибка при создании заказа:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при создании заказа',
-    });
+    res.status(500).json({ success: false, error: 'Ошибка при создании заказа' });
   }
 }
 
 async function getOrder(req, res) {
   try {
     const { id } = req.params;
-    const { Op } = require('sequelize');
-    const ownerCheck = req.user.role === 'admin'
-      ? { id }
-      : { id, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
-    const order = await Order.findOne({
-      where: ownerCheck,
+    const order = await checkOrderAccess(id, req.user);
+
+    if (!order) {
+      return res.status(404).json({ success: false, error: 'Заказ не найден' });
+    }
+
+    const fullOrder = await Order.findByPk(id, {
       include: [
         { model: Client, attributes: ['id', 'name'] },
         { model: OrderCalculator },
@@ -142,23 +134,10 @@ async function getOrder(req, res) {
       ],
     });
 
-    if (!order) {
-      return res.status(404).json({
-        success: false,
-        error: 'Заказ не найден',
-      });
-    }
-
-    res.json({
-      success: true,
-      data: order,
-    });
+    res.json({ success: true, data: fullOrder });
   } catch (error) {
     console.error('Ошибка при получении заказа:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при получении заказа',
-    });
+    res.status(500).json({ success: false, error: 'Ошибка при получении заказа' });
   }
 }
 
@@ -166,17 +145,10 @@ async function updateOrder(req, res) {
   try {
     const { id } = req.params;
     const { title, status, notes, deadline, paymentStatus, marginPercent } = req.body;
-    const { Op } = require('sequelize');
-    const whereClause = req.user.role === 'admin'
-      ? { id }
-      : { id, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] };
-    const order = await Order.findOne({ where: whereClause });
+    const order = await checkOrderAccess(id, req.user);
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        error: 'Заказ не найден',
-      });
+      return res.status(404).json({ success: false, error: 'Заказ не найден' });
     }
 
     if (title !== undefined) order.title = title;
@@ -188,47 +160,34 @@ async function updateOrder(req, res) {
 
     await order.save();
 
-    res.json({
-      success: true,
-      data: order,
-    });
+    res.json({ success: true, data: order });
   } catch (error) {
     console.error('Ошибка при обновлении заказа:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при обновлении заказа',
-    });
+    res.status(500).json({ success: false, error: 'Ошибка при обновлении заказа' });
   }
 }
 
 async function deleteOrder(req, res) {
   try {
     const { id } = req.params;
-    const { Op } = require('sequelize');
-    const whereClause = req.user.role === 'admin'
-      ? { id }
-      : { id, userId: req.user.userId };
-    const order = await Order.findOne({ where: whereClause });
+    const order = await checkOrderAccess(id, req.user);
 
     if (!order) {
-      return res.status(404).json({
-        success: false,
-        error: 'Заказ не найден',
-      });
+      return res.status(404).json({ success: false, error: 'Заказ не найден' });
     }
+
+    // Удалить файлы с диска перед удалением записей
+    const designs = await Design.findAll({ where: { orderId: id } });
+    const estimates = await CostEstimate.findAll({ where: { orderId: id } });
+    for (const d of designs) { await deleteFile(d.fileName).catch(() => {}); }
+    for (const e of estimates) { await deleteFile(e.fileName).catch(() => {}); }
 
     await order.destroy();
 
-    res.json({
-      success: true,
-      message: 'Заказ удален',
-    });
+    res.json({ success: true, message: 'Заказ удален' });
   } catch (error) {
     console.error('Ошибка при удалении заказа:', error.message);
-    res.status(500).json({
-      success: false,
-      error: 'Ошибка при удалении заказа',
-    });
+    res.status(500).json({ success: false, error: 'Ошибка при удалении заказа' });
   }
 }
 
@@ -237,6 +196,9 @@ async function deleteOrder(req, res) {
 async function getCalculators(req, res) {
   try {
     const { id } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
     const calculators = await OrderCalculator.findAll({
       where: { orderId: id },
       order: [['createdAt', 'ASC']],
@@ -257,10 +219,10 @@ async function saveCalculator(req, res) {
       return res.status(400).json({ success: false, error: 'Тип калькулятора обязателен' });
     }
 
-    // Ищем существующий калькулятор этого типа для этого заказа
-    let calculator = await OrderCalculator.findOne({
-      where: { orderId: id, type },
-    });
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    let calculator = await OrderCalculator.findOne({ where: { orderId: id, type } });
 
     if (calculator) {
       calculator.params = params || {};
@@ -282,11 +244,13 @@ async function saveCalculator(req, res) {
 
 async function deleteCalculator(req, res) {
   try {
-    const { calcId } = req.params;
-    const calc = await OrderCalculator.findByPk(calcId);
-    if (!calc) {
-      return res.status(404).json({ success: false, error: 'Калькулятор не найден' });
-    }
+    const { id, calcId } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const calc = await OrderCalculator.findOne({ where: { id: calcId, orderId: id } });
+    if (!calc) return res.status(404).json({ success: false, error: 'Калькулятор не найден' });
+
     await calc.destroy();
     res.json({ success: true, message: 'Калькулятор удалён' });
   } catch (error) {
@@ -300,6 +264,9 @@ async function deleteCalculator(req, res) {
 async function getBreakdown(req, res) {
   try {
     const { id } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
     const breakdown = await ProductionBreakdown.findAll({
       where: { orderId: id },
       include: [{ model: ProductionCompany, attributes: ['id', 'name', 'info', 'cooperation'] }],
@@ -319,6 +286,9 @@ async function addBreakdown(req, res) {
     if (!productionId) {
       return res.status(400).json({ success: false, error: 'Производство обязательно' });
     }
+
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
 
     const item = await ProductionBreakdown.create({
       orderId: id,
@@ -340,13 +310,14 @@ async function addBreakdown(req, res) {
 
 async function updateBreakdown(req, res) {
   try {
-    const { breakdownId } = req.params;
+    const { id, breakdownId } = req.params;
     const { amount, techTask } = req.body;
 
-    const item = await ProductionBreakdown.findByPk(breakdownId);
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Запись не найдена' });
-    }
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const item = await ProductionBreakdown.findOne({ where: { id: breakdownId, orderId: id } });
+    if (!item) return res.status(404).json({ success: false, error: 'Запись не найдена' });
 
     if (amount !== undefined) item.amount = amount;
     if (techTask !== undefined) item.techTask = techTask;
@@ -365,11 +336,13 @@ async function updateBreakdown(req, res) {
 
 async function deleteBreakdown(req, res) {
   try {
-    const { breakdownId } = req.params;
-    const item = await ProductionBreakdown.findByPk(breakdownId);
-    if (!item) {
-      return res.status(404).json({ success: false, error: 'Запись не найдена' });
-    }
+    const { id, breakdownId } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const item = await ProductionBreakdown.findOne({ where: { id: breakdownId, orderId: id } });
+    if (!item) return res.status(404).json({ success: false, error: 'Запись не найдена' });
+
     await item.destroy();
     res.json({ success: true, message: 'Запись удалена' });
   } catch (error) {
@@ -383,6 +356,9 @@ async function deleteBreakdown(req, res) {
 async function getDesigns(req, res) {
   try {
     const { id } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
     const designs = await Design.findAll({
       where: { orderId: id },
       order: [['uploadedAt', 'DESC']],
@@ -396,11 +372,14 @@ async function getDesigns(req, res) {
 
 async function deleteDesign(req, res) {
   try {
-    const { designId } = req.params;
-    const design = await Design.findByPk(designId);
-    if (!design) {
-      return res.status(404).json({ success: false, error: 'Макет не найден' });
-    }
+    const { id, designId } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const design = await Design.findOne({ where: { id: designId, orderId: id } });
+    if (!design) return res.status(404).json({ success: false, error: 'Макет не найден' });
+
+    await deleteFile(design.fileName).catch(() => {});
     await design.destroy();
     res.json({ success: true, message: 'Макет удалён' });
   } catch (error) {
@@ -414,6 +393,9 @@ async function deleteDesign(req, res) {
 async function getEstimates(req, res) {
   try {
     const { id } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
     const estimates = await CostEstimate.findAll({
       where: { orderId: id },
       order: [['uploadedAt', 'DESC']],
@@ -427,13 +409,14 @@ async function getEstimates(req, res) {
 
 async function updateEstimate(req, res) {
   try {
-    const { estimateId } = req.params;
+    const { id, estimateId } = req.params;
     const { extractedAmount } = req.body;
 
-    const estimate = await CostEstimate.findByPk(estimateId);
-    if (!estimate) {
-      return res.status(404).json({ success: false, error: 'Смета не найдена' });
-    }
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const estimate = await CostEstimate.findOne({ where: { id: estimateId, orderId: id } });
+    if (!estimate) return res.status(404).json({ success: false, error: 'Смета не найдена' });
 
     if (extractedAmount !== undefined) estimate.extractedAmount = extractedAmount;
     await estimate.save();
@@ -447,11 +430,14 @@ async function updateEstimate(req, res) {
 
 async function deleteEstimate(req, res) {
   try {
-    const { estimateId } = req.params;
-    const estimate = await CostEstimate.findByPk(estimateId);
-    if (!estimate) {
-      return res.status(404).json({ success: false, error: 'Смета не найдена' });
-    }
+    const { id, estimateId } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
+    const estimate = await CostEstimate.findOne({ where: { id: estimateId, orderId: id } });
+    if (!estimate) return res.status(404).json({ success: false, error: 'Смета не найдена' });
+
+    await deleteFile(estimate.fileName).catch(() => {});
     await estimate.destroy();
     res.json({ success: true, message: 'Смета удалена' });
   } catch (error) {
@@ -465,6 +451,9 @@ async function deleteEstimate(req, res) {
 async function getOrderMessages(req, res) {
   try {
     const { id } = req.params;
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
+
     const messages = await Message.findAll({
       where: { orderId: id },
       include: [{ model: User, attributes: ['id', 'fullName'] }],
@@ -486,6 +475,9 @@ async function addOrderMessage(req, res) {
     if (!text) {
       return res.status(400).json({ success: false, error: 'Текст сообщения обязателен' });
     }
+
+    const order = await checkOrderAccess(id, req.user);
+    if (!order) return res.status(404).json({ success: false, error: 'Заказ не найден' });
 
     const message = await Message.create({
       orderId: id,
@@ -513,23 +505,18 @@ module.exports = {
   deleteOrder,
   takeOrder,
   releaseOrder,
-  // Калькуляторы
   getCalculators,
   saveCalculator,
   deleteCalculator,
-  // Разбивка по производствам
   getBreakdown,
   addBreakdown,
   updateBreakdown,
   deleteBreakdown,
-  // Макеты
   getDesigns,
   deleteDesign,
-  // Сметы
   getEstimates,
   updateEstimate,
   deleteEstimate,
-  // Сообщения заказа
   getOrderMessages,
   addOrderMessage,
 };

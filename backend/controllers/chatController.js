@@ -1,9 +1,22 @@
-const { Message, User } = require('../models');
+const { Message, User, Order, Client } = require('../models');
+const { Op } = require('sequelize');
 
 async function getMessages(req, res) {
   try {
     const { orderId, clientId } = req.query;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    // Проверка доступа к заказу/клиенту
+    if (orderId && req.user.role !== 'admin') {
+      const order = await Order.findOne({
+        where: { id: orderId, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] },
+      });
+      if (!order) return res.status(403).json({ success: false, error: 'Нет доступа' });
+    }
+    if (clientId && req.user.role !== 'admin') {
+      const client = await Client.findOne({ where: { id: clientId, userId: req.user.userId } });
+      if (!client) return res.status(403).json({ success: false, error: 'Нет доступа' });
+    }
 
     const where = {};
     if (orderId) where.orderId = orderId;

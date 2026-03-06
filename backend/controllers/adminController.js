@@ -155,6 +155,13 @@ async function deleteUser(req, res) {
       });
     }
 
+    if (user.role === 'admin') {
+      return res.status(400).json({
+        success: false,
+        error: 'Нельзя удалить администратора',
+      });
+    }
+
     await user.destroy();
 
     res.json({

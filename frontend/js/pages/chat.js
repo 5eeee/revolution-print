@@ -331,7 +331,10 @@ const chatPage = (() => {
     return Object.values(map);
   }
 
-  return { render };
+  return {
+    render,
+    destroy() { if (refreshTimer) { clearInterval(refreshTimer); refreshTimer = null; } },
+  };
 })();
 
 

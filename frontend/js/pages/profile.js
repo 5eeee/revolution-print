@@ -147,7 +147,14 @@ const profilePage = (() => {
         if (!oldPass) { showToast('Введите текущий пароль'); return; }
         if (newPass !== confirmVal) { showToast('Пароли не совпадают'); return; }
         if (newPass.length < 6) { showToast('Пароль должен быть не менее 6 символов'); return; }
-        showToast('Функция смены пароля будет реализована позже');
+        try {
+          const res = await api.postRequest('/auth/change-password', { oldPassword: oldPass, newPassword: newPass });
+          if (res.success) {
+            showToast('Пароль успешно изменён');
+          }
+        } catch (e) {
+          showToast('Ошибка: ' + e.message);
+        }
         backdrop.style.display = 'none';
       });
 

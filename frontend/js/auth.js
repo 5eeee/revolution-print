@@ -1,7 +1,7 @@
 // Модуль авторизации
 const authModule = {
   _token: localStorage.getItem('token'),
-  _user: JSON.parse(localStorage.getItem('user') || '{}'),
+  _user: (() => { try { return JSON.parse(localStorage.getItem('user') || '{}'); } catch { return {}; } })(),
 
   setToken(token) {
     this._token = token;

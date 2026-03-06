@@ -1,4 +1,6 @@
-const { Design, CostEstimate } = require('../models');
+const { Design, CostEstimate, Order } = require('../models');
+const { deleteFile } = require('../utils/fileHandler');
+const { Op } = require('sequelize');
 
 async function uploadFile(req, res) {
   try {
@@ -87,6 +89,7 @@ async function deleteUpload(req, res) {
       if (design.uploadedBy !== req.user.userId && req.user.role !== 'admin') {
         return res.status(403).json({ success: false, error: 'Нет прав удалить этот макет' });
       }
+      await deleteFile(design.fileName).catch(() => {});
       await design.destroy();
     } else if (type === 'estimate') {
       const estimate = await CostEstimate.findByPk(id);
@@ -96,6 +99,14 @@ async function deleteUpload(req, res) {
           error: 'Смета не найдена',
         });
       }
+      // Проверка доступа через заказ
+      if (req.user.role !== 'admin') {
+        const order = await Order.findOne({
+          where: { id: estimate.orderId, [Op.or]: [{ userId: req.user.userId }, { assignedTo: req.user.userId }] },
+        });
+        if (!order) return res.status(403).json({ success: false, error: 'Нет прав удалить эту смету' });
+      }
+      await deleteFile(estimate.fileName).catch(() => {});
       await estimate.destroy();
     }
 

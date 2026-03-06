@@ -77,6 +77,8 @@ const appModule = (() => {
 
       try {
         await authModule.login(email, password);
+        document.getElementById('loginEmail').value = '';
+        document.getElementById('loginPassword').value = '';
         backdrop.style.display = 'none';
         app.style.display = 'grid';
         initializeApp();
@@ -138,6 +140,11 @@ const appModule = (() => {
       return;
     }
 
+    // Cleanup previous page
+    if (pages[currentPage] && typeof pages[currentPage].destroy === 'function') {
+      pages[currentPage].destroy();
+    }
+
     currentPage = pageId;
     currentParams = params;
     renderNav();
@@ -158,10 +165,14 @@ const appModule = (() => {
     }
   }
 
+  let initialized = false;
+
   function initializeApp() {
     renderNav();
     renderTopbar();
 
+    if (!initialized) {
+      initialized = true;
     document.getElementById('btnNotif').addEventListener('click', () => {
       const backdrop = document.getElementById('modalBackdrop');
       const title = document.getElementById('modalTitle');
@@ -195,6 +206,7 @@ const appModule = (() => {
 
     setInterval(updatePresence, 10000);
     updatePresence();
+    }
 
     goToPage('dashboard');
   }

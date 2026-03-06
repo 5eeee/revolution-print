@@ -12,52 +12,58 @@ const Message = require('./Message');
 const CompanySetting = require('./CompanySetting');
 
 // Определение связей
-User.hasMany(Client, { foreignKey: 'userId' });
+User.hasMany(Client, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Client.belongsTo(User, { foreignKey: 'userId' });
 
-User.hasMany(Order, { foreignKey: 'userId' });
+User.hasMany(Order, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Order.belongsTo(User, { foreignKey: 'userId', as: 'Creator' });
 
-Client.hasMany(Order, { foreignKey: 'clientId' });
+User.hasMany(Order, { foreignKey: 'assignedTo', as: 'AssignedOrders', constraints: false });
+Order.belongsTo(User, { foreignKey: 'assignedTo', as: 'Assignee', constraints: false });
+
+Client.hasMany(Order, { foreignKey: 'clientId', onDelete: 'CASCADE' });
 Order.belongsTo(Client, { foreignKey: 'clientId' });
 
-Order.hasMany(OrderCalculator, { foreignKey: 'orderId' });
+Order.hasMany(OrderCalculator, { foreignKey: 'orderId', onDelete: 'CASCADE' });
 OrderCalculator.belongsTo(Order, { foreignKey: 'orderId' });
 
-Order.hasMany(Design, { foreignKey: 'orderId' });
+Order.hasMany(Design, { foreignKey: 'orderId', onDelete: 'CASCADE' });
 Design.belongsTo(Order, { foreignKey: 'orderId' });
 
-Order.hasMany(CostEstimate, { foreignKey: 'orderId' });
+User.hasMany(Design, { foreignKey: 'uploadedBy', as: 'UploadedDesigns' });
+Design.belongsTo(User, { foreignKey: 'uploadedBy', as: 'Uploader' });
+
+Order.hasMany(CostEstimate, { foreignKey: 'orderId', onDelete: 'CASCADE' });
 CostEstimate.belongsTo(Order, { foreignKey: 'orderId' });
 
-Order.hasMany(ProductionBreakdown, { foreignKey: 'orderId' });
+Order.hasMany(ProductionBreakdown, { foreignKey: 'orderId', onDelete: 'CASCADE' });
 ProductionBreakdown.belongsTo(Order, { foreignKey: 'orderId' });
 
 ProductionCompany.hasMany(ProductionBreakdown, { foreignKey: 'productionId' });
 ProductionBreakdown.belongsTo(ProductionCompany, { foreignKey: 'productionId' });
 
-User.hasMany(ProductionCompany, { foreignKey: 'userId' });
+User.hasMany(ProductionCompany, { foreignKey: 'userId', onDelete: 'CASCADE' });
 ProductionCompany.belongsTo(User, { foreignKey: 'userId' });
 
-User.hasMany(Document, { foreignKey: 'userId' });
+User.hasMany(Document, { foreignKey: 'userId', onDelete: 'CASCADE' });
 Document.belongsTo(User, { foreignKey: 'userId' });
 
-Client.hasMany(Document, { foreignKey: 'clientId' });
+Client.hasMany(Document, { foreignKey: 'clientId', onDelete: 'SET NULL' });
 Document.belongsTo(Client, { foreignKey: 'clientId' });
 
-Order.hasMany(Document, { foreignKey: 'orderId' });
+Order.hasMany(Document, { foreignKey: 'orderId', onDelete: 'SET NULL' });
 Document.belongsTo(Order, { foreignKey: 'orderId' });
 
 User.hasMany(Message, { foreignKey: 'userId' });
 Message.belongsTo(User, { foreignKey: 'userId' });
 
-Order.hasMany(Message, { foreignKey: 'orderId' });
+Order.hasMany(Message, { foreignKey: 'orderId', onDelete: 'CASCADE' });
 Message.belongsTo(Order, { foreignKey: 'orderId' });
 
-Client.hasMany(Message, { foreignKey: 'clientId' });
+Client.hasMany(Message, { foreignKey: 'clientId', onDelete: 'SET NULL' });
 Message.belongsTo(Client, { foreignKey: 'clientId' });
 
-User.hasOne(CompanySetting, { foreignKey: 'userId' });
+User.hasOne(CompanySetting, { foreignKey: 'userId', onDelete: 'CASCADE' });
 CompanySetting.belongsTo(User, { foreignKey: 'userId' });
 
 module.exports = {
