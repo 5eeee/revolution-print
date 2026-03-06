@@ -14,6 +14,9 @@ const productionRoutes = require('./routes/production');
 const adminRoutes = require('./routes/admin');
 const uploadRoutes = require('./routes/upload');
 
+const { User } = require('./models');
+const { hashPassword } = require('./utils/hash');
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -95,6 +98,19 @@ async function startServer() {
     } else {
       await sequelize.sync();
       console.log('Модели инициализированы');
+    }
+
+    // Автоматическое создание admin при первом запуске
+    const userCount = await User.count();
+    if (userCount === 0) {
+      await User.create({
+        fullName: 'Администратор',
+        email: 'admin@revolution.print',
+        passwordHash: await hashPassword('admin123'),
+        role: 'admin',
+        active: true
+      });
+      console.log('Создан администратор: admin@revolution.print / admin123');
     }
 
     app.listen(PORT, () => {

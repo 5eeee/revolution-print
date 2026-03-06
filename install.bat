@@ -1,5 +1,6 @@
 @echo off
 chcp 65001 >nul
+setlocal enabledelayedexpansion
 cd /d "%~dp0"
 echo ============================================
 echo   Revolution Print — Установка на сервер
@@ -138,22 +139,25 @@ for /f "delims=" %%f in ('dir /b /o-d "backups\revolution_print_*.sql" 2^>nul') 
 
 if %HAS_BACKUP%==1 (
     echo       Найден бэкап: %DUMP_FILE%
-    echo       Восстановление данных...
-    psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f "%DUMP_FILE%" >nul 2>&1
-    echo       Данные восстановлены из бэкапа
-    
-    :: Восстановить файлы
-    if exist "backups\uploads" (
-        if not exist "backend\uploads" mkdir "backend\uploads"
-        xcopy /E /Y /Q "backups\uploads\*" "backend\uploads\" >nul 2>&1
-        echo       Загруженные файлы восстановлены
+    echo.
+    set /p RESTORE_CHOICE="       Восстановить данные из бэкапа? (y/n): "
+    if /i "!RESTORE_CHOICE!"=="y" (
+        echo       Восстановление данных...
+        psql -h %DB_HOST% -p %DB_PORT% -U %DB_USER% -d %DB_NAME% -f "%DUMP_FILE%" >nul 2>&1
+        echo       Данные восстановлены из бэкапа
+        
+        :: Восстановить файлы
+        if exist "backups\uploads" (
+            if not exist "backend\uploads" mkdir "backend\uploads"
+            xcopy /E /Y /Q "backups\uploads\*" "backend\uploads\" >nul 2>&1
+            echo       Загруженные файлы восстановлены
+        )
+    ) else (
+        echo       Бэкап пропущен. Админ будет создан автоматически при первом запуске.
     )
 ) else (
-    echo       Бэкап не найден. Запуск seed для тестовых данных...
-    cd backend
-    node -e "const seq = require('./models').sequelize; seq.sync({alter:true}).then(()=>{console.log('Схема создана'); process.exit(0)}).catch(e=>{console.error(e.message); process.exit(1)})"
-    node seed.js
-    cd ..
+    echo       Бэкап не найден. Админ будет создан автоматически при первом запуске.
+    echo       Для тестовых данных выполните: cd backend ^&^& node seed.js
 )
 
 :: Создание папки uploads
