@@ -3,6 +3,8 @@ const clientsPage = (() => {
   let orders = [];
   let filterStatus = 'all';
   let searchQuery = '';
+  let dateFrom = '';
+  let dateTo = '';
 
   const statusList = ['Новый', 'В работе', 'В ожидании', 'Отказ', 'Закрыт'];
   const statusColors = { 'Новый': '#3b82f6', 'В работе': '#22c55e', 'В ожидании': '#eab308', 'Отказ': '#ef4444', 'Закрыт': '#6b7280' };
@@ -42,6 +44,14 @@ const clientsPage = (() => {
         (c.comment || '').toLowerCase().includes(q)
       );
     }
+    if (dateFrom) {
+      const from = new Date(dateFrom); from.setHours(0,0,0,0);
+      filtered = filtered.filter(c => new Date(c.createdAt) >= from);
+    }
+    if (dateTo) {
+      const to = new Date(dateTo); to.setHours(23,59,59,999);
+      filtered = filtered.filter(c => new Date(c.createdAt) <= to);
+    }
 
     container.innerHTML = `
       <div class="grid">
@@ -71,6 +81,10 @@ const clientsPage = (() => {
             <div style="display: flex; gap: 8px; align-items: center;">
               <input id="clientSearch" placeholder="Поиск..." value="${escapeHtml(searchQuery)}"
                 style="padding: 8px 14px; border: 1px solid var(--line); border-radius: 8px; width: 220px; font-size: 13px;" />
+              <input type="date" id="clientDateFrom" value="${dateFrom}" title="Дата от"
+                style="padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted);" />
+              <input type="date" id="clientDateTo" value="${dateTo}" title="Дата до"
+                style="padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; font-size: 12px; color: var(--muted);" />
               <button class="btn primary" id="btnNewClient" style="white-space: nowrap;">+ Новый клиент</button>
             </div>
           </div>
@@ -141,6 +155,14 @@ const clientsPage = (() => {
     // Поиск
     container.querySelector('#clientSearch')?.addEventListener('input', e => {
       searchQuery = e.target.value; renderContent(container);
+    });
+
+    // Фильтр по дате
+    container.querySelector('#clientDateFrom')?.addEventListener('change', e => {
+      dateFrom = e.target.value; renderContent(container);
+    });
+    container.querySelector('#clientDateTo')?.addEventListener('change', e => {
+      dateTo = e.target.value; renderContent(container);
     });
 
     // Новый клиент

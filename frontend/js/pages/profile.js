@@ -58,6 +58,17 @@ const profilePage = (() => {
             <input value="${escapeHtml(user.role)}" disabled />
           </div>
 
+          <div style="display: flex; align-items: center; gap: 12px; margin-top: 16px; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(0,0,0,0.02);">
+            <label class="theme-switch">
+              <input type="checkbox" id="themeToggle" ${localStorage.getItem('theme') === 'dark' ? 'checked' : ''} />
+              <span class="theme-slider"></span>
+            </label>
+            <div>
+              <div style="font-size: 13px; font-weight: 600;">Тёмная тема</div>
+              <div class="subtle" style="font-size: 11px;">Переключить оформление</div>
+            </div>
+          </div>
+
           <div class="row" style="margin-top: 20px; gap: 10px;">
             <button class="btn primary" id="btnSaveProfile">Сохранить</button>
             <button class="btn ghost" id="btnChangePassword">Изменить пароль</button>
@@ -167,6 +178,13 @@ const profilePage = (() => {
         e.target.style.background = colors[newStatus] + '15';
         showToast('Статус обновлён');
       } catch (err) { showToast('Ошибка: ' + err.message); }
+    });
+
+    // Theme toggle
+    document.getElementById('themeToggle').addEventListener('change', (e) => {
+      const theme = e.target.checked ? 'dark' : 'light';
+      document.documentElement.setAttribute('data-theme', theme);
+      localStorage.setItem('theme', theme);
     });
 
     document.getElementById('btnSaveSettings').addEventListener('click', async () => {

@@ -254,5 +254,9 @@ window.appModule = appModule;
 
 // Инициализация при загрузке страницы
 window.addEventListener('DOMContentLoaded', () => {
+  // Применяем сохранённую тему
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme) document.documentElement.setAttribute('data-theme', savedTheme);
+
   appModule.init();
 });
