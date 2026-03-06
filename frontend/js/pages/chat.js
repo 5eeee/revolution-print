@@ -288,8 +288,8 @@ const chatPage = (() => {
       const filesList = Array.isArray(m.files) ? m.files : (typeof m.files === 'string' ? (() => { try { return JSON.parse(m.files); } catch { return []; } })() : []);
       const filesHtml = filesList.length ? `
         <div style="margin-top: 6px; display: flex; flex-direction: column; gap: 4px;">
-          ${filesList.map(f => `
-            <a href="${api.baseUrl.replace('/api', '')}${f.url}" target="_blank" download
+          ${filesList.filter(f => f.url && typeof f.url === 'string' && f.url.startsWith('/uploads/')).map(f => `
+            <a href="${api.baseUrl.replace('/api', '')}${encodeURI(f.url)}" target="_blank" download
               style="display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; 
               background: rgba(0,0,0,0.04); border-radius: 8px; font-size: 12px; color: var(--copper); text-decoration: none; max-width: 280px;">
               ${icon('paperclip', 12)} <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap;" title="${escapeHtml(f.name)}">${escapeHtml(truncFileName(f.name))}</span>${f.size ? ' <span style="flex-shrink:0;">(' + formatFileSize(f.size) + ')</span>' : ''}

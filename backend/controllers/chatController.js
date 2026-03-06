@@ -3,8 +3,16 @@ const { Op } = require('sequelize');
 
 async function getMessages(req, res) {
   try {
-    const { orderId, clientId } = req.query;
+    const orderId = req.query.orderId ? parseInt(req.query.orderId) : null;
+    const clientId = req.query.clientId ? parseInt(req.query.clientId) : null;
     const limit = Math.min(parseInt(req.query.limit) || 50, 100);
+
+    if (req.query.orderId && (isNaN(orderId) || orderId <= 0)) {
+      return res.status(400).json({ success: false, error: 'Некорректный orderId' });
+    }
+    if (req.query.clientId && (isNaN(clientId) || clientId <= 0)) {
+      return res.status(400).json({ success: false, error: 'Некорректный clientId' });
+    }
 
     // Проверка доступа к заказу/клиенту
     if (orderId && req.user.role !== 'admin') {
@@ -53,12 +61,43 @@ async function createMessage(req, res) {
       });
     }
 
+    // Validate text length
+    if (text && typeof text === 'string' && text.length > 5000) {
+      return res.status(400).json({ success: false, error: 'Сообщение слишком длинное (максимум 5000 символов)' });
+    }
+
+    // Validate orderId/clientId as integers
+    const safeOrderId = orderId ? parseInt(orderId) : null;
+    const safeClientId = clientId ? parseInt(clientId) : null;
+    if (orderId && (isNaN(safeOrderId) || safeOrderId <= 0)) {
+      return res.status(400).json({ success: false, error: 'Некорректный orderId' });
+    }
+    if (clientId && (isNaN(safeClientId) || safeClientId <= 0)) {
+      return res.status(400).json({ success: false, error: 'Некорректный clientId' });
+    }
+
+    // Validate and sanitize files array
+    let safeFiles = [];
+    if (Array.isArray(files)) {
+      safeFiles = files.slice(0, 20).map(f => {
+        if (!f || typeof f !== 'object') return null;
+        const url = typeof f.url === 'string' ? f.url : '';
+        // Only allow relative /uploads/ paths
+        if (!url.startsWith('/uploads/')) return null;
+        return {
+          name: typeof f.name === 'string' ? f.name.slice(0, 255) : 'file',
+          url: url,
+          size: typeof f.size === 'number' ? f.size : 0,
+        };
+      }).filter(Boolean);
+    }
+
     const message = await Message.create({
       userId: req.user.userId,
-      text: text || '',
-      orderId: orderId || null,
-      clientId: clientId || null,
-      files: files || [],
+      text: typeof text === 'string' ? text.slice(0, 5000) : '',
+      orderId: safeOrderId,
+      clientId: safeClientId,
+      files: safeFiles,
     });
 
     const messageWithUser = await Message.findByPk(message.id, {
