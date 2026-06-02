@@ -50,13 +50,17 @@ const appModule = (() => {
 
     title.textContent = 'Вход в систему';
     body.innerHTML = `
+      <p style="margin:0 0 10px;font-size:12px;color:var(--muted);line-height:1.45;">
+        Локальный вход: <b>admin@revolution.print</b> / <b>admin123</b><br />
+        <span style="opacity:.9;">Домен заканчивается на <b>.print</b> (не .prin)</span>
+      </p>
       <div class="field">
         <label>Email</label>
-        <input id="loginEmail" placeholder="user@example.com" />
+        <input id="loginEmail" type="email" autocomplete="username" placeholder="admin@revolution.print" />
       </div>
       <div class="field" style="margin-top: 10px;">
         <label>Пароль</label>
-        <input id="loginPassword" type="password" placeholder="••••••••" />
+        <input id="loginPassword" type="password" autocomplete="current-password" placeholder="admin123" />
       </div>
       <div class="row" style="margin-top: 12px; gap: 10px;">
         <button class="btn primary" id="btnLogin">Вход</button>
@@ -67,7 +71,11 @@ const appModule = (() => {
     backdrop.style.zIndex = '999';
 
     document.getElementById('btnLogin').addEventListener('click', async () => {
-      const email = document.getElementById('loginEmail').value.trim();
+      let email = document.getElementById('loginEmail').value.trim().toLowerCase();
+      if (/@revolution\.prin$/i.test(email) && !/@revolution\.print$/i.test(email)) {
+        email = email.replace(/@revolution\.prin$/i, '@revolution.print');
+        document.getElementById('loginEmail').value = email;
+      }
       const password = document.getElementById('loginPassword').value;
 
       if (!email || !password) {

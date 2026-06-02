@@ -1,6 +1,15 @@
 // API Client — единый объект для всех запросов к серверу
+function getApiBaseUrl() {
+  if (typeof window === 'undefined') return 'http://localhost:3100/api';
+  const { protocol, hostname, port } = window.location;
+  if (port === '3100') return `${protocol}//${hostname}:${port}/api`;
+  return `http://${hostname}:3100/api`;
+}
+
 const api = {
-  baseUrl: 'http://localhost:3100/api',
+  get baseUrl() {
+    return getApiBaseUrl();
+  },
 
   // Получить заголовки с токеном авторизации
   _headers() {

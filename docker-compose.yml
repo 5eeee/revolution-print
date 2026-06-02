@@ -7,7 +7,7 @@ services:
     container_name: revolution_print_db
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: password
+      POSTGRES_PASSWORD: 12345
       POSTGRES_DB: revolution_print
       TZ: UTC
     ports:
@@ -30,7 +30,7 @@ services:
       dockerfile: Dockerfile
     container_name: revolution_print_api
     environment:
-      DATABASE_URL: postgresql://postgres:password@postgres:5432/revolution_print
+      DATABASE_URL: postgresql://postgres:12345@postgres:5432/revolution_print
       JWT_SECRET: revolution_print_super_secret_key_change_in_production_2024
       JWT_EXPIRATION: 7d
       PORT: 3000

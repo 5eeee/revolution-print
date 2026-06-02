@@ -19,6 +19,7 @@ const { hashPassword } = require('./utils/hash');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const frontendDir = path.join(__dirname, '..', 'frontend');
 
 // Hide server identity
 app.disable('x-powered-by');
@@ -68,6 +69,21 @@ app.get('/health', (req, res) => {
   });
 });
 
+if (process.env.NODE_ENV === 'development') {
+  app.use(express.static(frontendDir, { index: false, dotfiles: 'deny', maxAge: 0 }));
+  app.get('/', (req, res) => {
+    res.sendFile(path.join(frontendDir, 'index.html'));
+  });
+} else {
+  app.get('/', (req, res) => {
+    res.json({
+      success: true,
+      service: 'Revolution Print API',
+      health: '/health',
+    });
+  });
+}
+
 // Обработчик ошибок 404
 app.use((req, res) => {
   res.status(404).json({
@@ -115,6 +131,9 @@ async function startServer() {
 
     app.listen(PORT, () => {
       console.log(`Revolution Print API запущен на http://localhost:${PORT}`);
+      if (process.env.NODE_ENV === 'development') {
+        console.log(`Веб-интерфейс: http://localhost:${PORT} (тот же порт, что и API)`);
+      }
     });
   } catch (error) {
     console.error('Ошибка при запуске:', error.message);

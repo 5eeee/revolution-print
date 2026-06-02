@@ -8,9 +8,17 @@ function formatUserData(user) {
   return { id: user.id, fullName: user.fullName, email: user.email, role: user.role, avatar: user.avatar, status: user.status };
 }
 
+function normalizeLoginEmail(raw) {
+  let email = String(raw).trim().toLowerCase();
+  if (/@revolution\.prin$/i.test(email) && !/@revolution\.print$/i.test(email)) {
+    email = email.replace(/@revolution\.prin$/i, '@revolution.print');
+  }
+  return email;
+}
+
 async function login(req, res) {
   try {
-    const { email, password } = req.body;
+    let { email, password } = req.body;
 
     if (!email || !password) {
       return res.status(400).json({
@@ -18,6 +26,8 @@ async function login(req, res) {
         error: 'Email и пароль обязательны',
       });
     }
+
+    email = normalizeLoginEmail(email);
 
     const user = await User.findOne({ where: { email } });
     if (!user) {
