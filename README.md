@@ -1,6 +1,8 @@
 # Revolution Print Platform
 
-Веб-приложение для управления типографией: клиенты, заказы, документы, производство, чат. Многопользовательский доступ с ролями (admin, manager, production).
+> **Полная техническая документация:** [docs/TECHNICAL.md](docs/TECHNICAL.md) · **GitHub:** [github.com/5eeee/revolution-print](https://github.com/5eeee/revolution-print)
+
+Веб-приложение для управления типографией
 
 ## Структура проекта
 
